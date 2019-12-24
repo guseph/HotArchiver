@@ -5,20 +5,24 @@ import time
 import pprint
 
 def list_help_commands():
+    print('-------------------')
     print('Available Commands:')
     print('HELP : Prints a list of available commands.')
-    print('ARCHIVE : Archives a subreddit using the top 100 results within hour intervals.')
+    print('ARCHIVE : Archives a subreddit using the top 100 results within 24-hour intervals.')
     print('ADVANCED : Like ARCHIVE, but provides finer control over archival process. Expect additional input statements.')
     print('CLEAR: Deletes an archived subreddit after confirmation.')
     print('QUIT : Exits the program.')
+    print('-------------------')
 
-def archive_subreddit(dataB: mySQLInterface.DBInstance, subreddit: str, hours:int=1, size:int=100):
-    JUNE_22_2005_REDDIT_START_EPOCH_TIME = 1119398400
+def archive_subreddit(dataB: mySQLInterface.DBInstance, subreddit: str, hours:int=24, size:int=100):
+    JUNE_22_2005_REDDIT_START_EPOCH_TIME = 1119398400  # June 22, 2005 @ 12:00 AM GMT ; 
     if 'r/' in subreddit:
         subreddit = subreddit[2:]   # strips the r/ if users provided the subreddit with this prefix
 
     dataB.change_table(subreddit)
     
+    initial_time = time.time()
+
     try:
         for hour in range(int(time.time()), JUNE_22_2005_REDDIT_START_EPOCH_TIME, -3600 * hours):  # 3600 seconds = 1 hour
             use_response_dict = pushshiftInterface.get_request('/reddit/submission/search', {'subreddit': subreddit, 'sort_type':'score', 'sort':'desc', 'filter':['id', 'created_utc', 'author', 'score', 'title', 'url'], 'size':size, 'before':f'{hour}', 'after':f'{hour - 3600 * hours}'})
@@ -42,7 +46,9 @@ def archive_subreddit(dataB: mySQLInterface.DBInstance, subreddit: str, hours:in
 
             if hour < JUNE_22_2005_REDDIT_START_EPOCH_TIME:
                 break
-        print(f'Archival of subreddit {subreddit} complete.')
+
+        print(f'Archival of subreddit {subreddit} complete. Process took {(time.time() - initial_time)} seconds.')
+
     except pushshiftInterface.HTTPError as he:
         print(f'HTTP Error Code: {he.error_code()}')
 
@@ -74,7 +80,7 @@ if __name__ == "__main__":
         elif user_input == 'ARCHIVE':
             archive_subreddit(dataB_instance, input('Choose a subreddit to archive: '))
         elif user_input == 'ADVANCED':
-            archive_subreddit(dataB_instance, input('Choose a subreddit to archive: '), int(input('Enter hour interval: ')), int(input('Enter size of results to retrieve each hour interval: ')))
+            archive_subreddit(dataB_instance, input('Choose a subreddit to archive: '), int(input('Enter hour interval: ')), int(input('Enter size of results to retrieve each hour interval (max 1000): ')))
         elif user_input == 'CLEAR':
             clear_subreddit_archive(dataB_instance, input('Choose a subreddit to clear: '))
 
